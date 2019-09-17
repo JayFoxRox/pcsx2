@@ -686,7 +686,9 @@ public:
     __fi xAddressVoid operator+(const xAddressVoid &right) const { return xAddressVoid(*this).Add(right); }
     __fi xAddressVoid operator+(s32 imm) const { return xAddressVoid(*this).Add(imm); }
     __fi xAddressVoid operator-(s32 imm) const { return xAddressVoid(*this).Add(-imm); }
-    __fi xAddressVoid operator+(const void *addr) const { return xAddressVoid(*this).Add((uptr)addr); }
+    __fi xAddressVoid operator+(const void *addr) const {
+         uintptr_t src_addr = (uintptr_t)addr;
+        assert(src_addr <= 0xFFFFFFFF); return xAddressVoid(*this).Add((uptr)addr); }
 
     __fi void operator+=(const xAddressReg &right) { Add(right); }
     __fi void operator+=(s32 imm) { Add(imm); }
@@ -749,7 +751,11 @@ public:
     __fi xAddressInfo<BaseType> operator+(const xAddressInfo<BaseType> &right) const { return xAddressInfo(*this).Add(right); }
     __fi xAddressInfo<BaseType> operator+(s32 imm) const { return xAddressInfo(*this).Add(imm); }
     __fi xAddressInfo<BaseType> operator-(s32 imm) const { return xAddressInfo(*this).Add(-imm); }
-    __fi xAddressInfo<BaseType> operator+(const void *addr) const { return xAddressInfo(*this).Add((uptr)addr); }
+    __fi xAddressInfo<BaseType> operator+(const void *addr) const { 
+        uintptr_t src_addr = (uintptr_t)addr;
+        assert(src_addr <= 0xFFFFFFFF);
+
+return xAddressInfo(*this).Add((uptr)addr); }
 
     __fi void operator+=(const xAddressInfo<BaseType> &right) { Add(right); }
 };
@@ -988,6 +994,9 @@ public:
 
     xModSibType operator[](const void *src) const
     {
+        //assert(false);
+        uintptr_t src_addr = (uintptr_t)src;
+        assert(src_addr <= 0xFFFFFFFF);
         return xModSibType((uptr)src);
     }
 };

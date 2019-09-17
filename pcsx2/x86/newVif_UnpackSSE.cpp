@@ -22,13 +22,41 @@
 #define xMOV64(regX, loc)	xMOVUPS(regX, loc)
 #define xMOV128(regX, loc)	xMOVUPS(regX, loc)
 
-static const __aligned16 u32 SSEXYZWMask[4][4] =
+static const __aligned16 u32 _SSEXYZWMask[4][4] =
 {
 	{0xffffffff, 0xffffffff, 0xffffffff, 0x00000000},
 	{0xffffffff, 0xffffffff, 0x00000000, 0xffffffff},
 	{0xffffffff, 0x00000000, 0xffffffff, 0xffffffff},
 	{0x00000000, 0xffffffff, 0xffffffff, 0xffffffff}
 };
+
+#include <sys/mman.h>
+#include <cstring>
+#include <functional>
+#include <type_traits>
+
+
+template <typename T>
+class reloc32 : public std::reference_wrapper<T> {
+public:
+  reloc32( T& other ) noexcept : std::reference_wrapper<T>(other) {
+
+    // Allocate new space
+    void* p = mmap(NULL, (sizeof(T) + 0xFFF) & ~0xFFF, PROT_WRITE|PROT_READ|PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
+    assert(p != MAP_FAILED);
+
+    // Copy data
+    std::memcpy(p, &other, sizeof(T));
+
+    // Set up reference
+    std::reference_wrapper<T>::operator=(std::ref(*(T*)p));
+  }
+};
+
+typedef const __aligned16 u32 _SSEXYZWMask_type[4][4];
+reloc32<_SSEXYZWMask_type> SSEXYZWMask = _SSEXYZWMask;
+
+
 
 //static __pagealigned u8 nVifUpkExec[__pagesize*4];
 static RecompiledCodeReserve* nVifUpkExec = NULL;
@@ -385,12 +413,15 @@ VifUnpackSSE_Simple::VifUnpackSSE_Simple(bool usn_, bool domask_, int curCycle_)
 	IsAligned	= true;
 }
 
+typedef __aligned16 u32		_nVifMask_type[3][4][4];	 // [MaskNumber][CycleNumber][Vector]
+reloc32<_nVifMask_type> __nVifMask = nVifMask;
+
 void VifUnpackSSE_Simple::doMaskWrite(const xRegisterSSE& regX) const {
 	xMOVAPS(xmm7, ptr[dstIndirect]);
 	int offX = std::min(curCycle, 3);
-	xPAND(regX, ptr32[nVifMask[0][offX]]);
-	xPAND(xmm7, ptr32[nVifMask[1][offX]]);
-	xPOR (regX, ptr32[nVifMask[2][offX]]);
+	xPAND(regX, ptr32[__nVifMask[0][offX]]);
+	xPAND(xmm7, ptr32[__nVifMask[1][offX]]);
+	xPOR (regX, ptr32[__nVifMask[2][offX]]);
 	xPOR (regX, xmm7);
 	xMOVAPS(ptr[dstIndirect], regX);
 }
