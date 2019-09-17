@@ -988,6 +988,9 @@ public:
 
     xModSibType operator[](const void *src) const
     {
+        //assert(false);
+        uintptr_t src_addr = (uintptr_t)src;
+        assert(src_addr <= 0xFFFFFFFF);
         return xModSibType((uptr)src);
     }
 };

@@ -216,6 +216,86 @@ static void setMasks(const vifStruct& vif, const VIFregisters& v) {
 // a crap?  Really? :p
 //
 
+#include <sys/mman.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdint.h>
+
+static void enter32(uint64_t function, uint64_t a0, uint64_t a1) {
+  assert(function <= 0xFFFFFFFF);
+  assert(a0 <= 0xFFFFFFFF);
+  assert(a1 <= 0xFFFFFFFF);
+  void* _function = (void*)function;
+  uint32_t _a0 = a0;
+  uint32_t _a1 = a1;
+
+  unsigned int stack_size = 4096*10;
+  void* stack = mmap(NULL, stack_size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
+  stack = (void*) (((uintptr_t)stack) + stack_size);
+
+  void* helper = mmap(NULL, 4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
+  uint8_t* c = (uint8_t*)helper;
+  // Prepare ds
+  *c++ = 0x6a; *c++ = 0x2b; // push $0x2b
+  *c++ = 0x1f; // pop %ds
+  // Get target and jump to it
+  *c++ = 0x58; // pop %eax
+  *c++ = 0xff, *c++ = 0xd0; // call eax
+#if 0
+  // Debug marker
+  *c++ = 0xcc; // int3
+#endif
+  // Restore ds
+  *c++ = 0x6a; *c++ = 0x00; // push $0x00
+  *c++ = 0x1f; // pop %ds
+  // Switch to 64 bit mode
+  *c++ = 0xea; *(uint32_t*)c = 6+(uintptr_t)c; c+= 4; *c++ = 0x33; *c++ = 0x00;
+  //FIXME: Switch to 64 bit address
+  *c++ = 0xc3; // ret
+
+  __asm__ volatile("movq %%rsp, %%rax;"
+                   "movq %1, %%rsp;"       // rsp = stack
+                   //"movq $foobar, %%rax;"
+                   //"pushq %%rax;"         // push 64 bit return
+                   "pushq %%rax;"
+
+                   "call foobarx;"
+                   "foobarx:"
+                   "pop %%rax;"
+                   "addq $(foobar-foobarx), %%rax;"
+                   "pushq %%rax;"
+
+#if 0
+                   "int3;"
+#endif
+
+                   //FIXME: split into 2 subs
+                   "subq $12, %%rsp;"      // rsp -= 4 * 3
+
+                   "movq %2, %%rax;"       // [rsp+8] = function
+                   "movl %%eax, 8(%%rsp);" // ..
+
+                   "movl $0x23, 4(%%rsp);" // [rsp+4] = 0x23
+                   "movq %0, %%rax;"       // [rsp+0] = enter32
+
+                   "movl %%eax, 0(%%rsp);" // ..
+                   "lret;"
+                   "foobar:"
+#if 0
+                   "int3;" //FIXME: check RSP
+#endif
+                   "popq %%rsp;"
+                   :
+                   : "m"(helper),
+                     "b"(stack),
+                     "m"(function),
+                     "d"(_a0),
+                     "c"(_a1)
+                   :
+                   ); 
+  //function(a0, a1);
+}
+
 // size - size of the packet fragment incoming from DMAC.
 template< int idx, bool doMode, bool isFill >
 __ri void __fastcall _nVifUnpackLoop(const u8* data) {
@@ -253,7 +333,7 @@ __ri void __fastcall _nVifUnpackLoop(const u8* data) {
 		else {
 			//DevCon.WriteLn("SSE Unpack!");
 			uint cl3 = std::min(vif.cl, 3);
-			fnbase[cl3](dest, data);
+			enter32((uint64_t)fnbase[cl3], (uint64_t)dest, (uint64_t)data);
 		}
 
 		vif.tag.addr += 16;

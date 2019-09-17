@@ -149,7 +149,7 @@ void *HostSys::MmapReservePtr(void *base, size_t size)
     // or anonymous source, with PROT_NONE (no-access) permission.  Since the mapping
     // is completely inaccessible, the OS will simply reserve it and will not put it
     // against the commit table.
-    return mmap(base, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    return mmap(base, size, PROT_NONE, MAP_32BIT | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
 
 bool HostSys::MmapCommitPtr(void *base, size_t size, const PageProtectionMode &mode)
@@ -212,7 +212,7 @@ void *HostSys::Mmap(uptr base, size_t size)
 
     // MAP_ANONYMOUS - means we have no associated file handle (or device).
 
-    return mmap((void *)base, size, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    return mmap((void *)base, size, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_32BIT | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
 
 void HostSys::Munmap(uptr base, size_t size)

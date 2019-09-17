@@ -347,8 +347,11 @@ _vifT __fi void dVifUnpack(const u8* data, bool isFill) {
 
 		u8*  startmem = VU.Mem + (vif.tag.addr & (vuMemLimit-0x10));
 		u8*  endmem   = VU.Mem + vuMemLimit;
-
+#if 0
 		if (likely((startmem + b->length) <= endmem)) {
+#else
+    if(0) {
+#endif
 			// No wrapping, you can run the fast dynarec
 			((nVifrecCall)b->startPtr)((uptr)startmem, (uptr)data);
 		} else {
